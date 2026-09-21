@@ -7,6 +7,9 @@ class SeriesSummary(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    study_uid: Optional[str] = None
+    patient_id: Optional[str] = None
+    patient_name: Optional[str] = None
     modality: Optional[str] = None
     series_description: Optional[str] = None
     study_date: Optional[str] = None
@@ -41,6 +44,9 @@ class SeriesDetail(BaseModel):
 
     id: int
     series_uid: Optional[str] = None
+    study_uid: Optional[str] = None
+    patient_id: Optional[str] = None
+    patient_name: Optional[str] = None
     modality: Optional[str] = None
     series_description: Optional[str] = None
     study_date: Optional[str] = None

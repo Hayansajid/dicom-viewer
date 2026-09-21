@@ -16,13 +16,17 @@ USE dicom_viewer;
 CREATE TABLE IF NOT EXISTS series (
   id                  INT AUTO_INCREMENT PRIMARY KEY,
   series_uid          VARCHAR(128) NULL,
+  study_uid           VARCHAR(128) NULL,
+  patient_id          VARCHAR(64)  NULL,
+  patient_name        VARCHAR(255) NULL,
   modality            VARCHAR(16)  NULL,
   series_description  VARCHAR(255) NULL,
   study_date          VARCHAR(10)  NULL,
   pixel_spacing       VARCHAR(32)  NULL,
   transfer_syntax_uid VARCHAR(255) NULL,
   slice_count         INT NOT NULL DEFAULT 0,
-  created_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  created_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_patient (patient_id)
 );
 
 -- One row per *viewable image*: a plain single-frame file produces exactly
@@ -60,4 +64,8 @@ CREATE TABLE IF NOT EXISTS slices (
 -- ALTER TABLE series ADD COLUMN transfer_syntax_uid VARCHAR(255) NULL;
 -- ALTER TABLE slices ADD COLUMN frame_index INT NOT NULL DEFAULT 0 AFTER storage_path;
 -- ALTER TABLE slices ADD COLUMN is_color TINYINT(1) NOT NULL DEFAULT 0 AFTER cols_px;
+-- ALTER TABLE series ADD COLUMN study_uid VARCHAR(128) NULL AFTER series_uid;
+-- ALTER TABLE series ADD COLUMN patient_id VARCHAR(64) NULL AFTER study_uid;
+-- ALTER TABLE series ADD COLUMN patient_name VARCHAR(255) NULL AFTER patient_id;
+-- ALTER TABLE series ADD INDEX idx_patient (patient_id);
 -- ---------------------------------------------------------------------

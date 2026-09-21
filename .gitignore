@@ -1,0 +1,28 @@
+# --- Secrets - never commit real credentials ---
+backend/.env
+frontend/.env
+.env
+
+# --- Python (backend) ---
+backend/.venv/
+backend/venv/
+backend/__pycache__/
+backend/app/__pycache__/
+**/__pycache__/
+*.pyc
+
+# --- Node (frontend) ---
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# --- Uploaded patient data + generated pixel cache ---
+# Real DICOM files (potentially real patient data) and their decoded
+# .raw/.meta.json caches land here at runtime - never belongs in git.
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# --- OS / editor cruft ---
+.DS_Store
+Thumbs.db
+*.log

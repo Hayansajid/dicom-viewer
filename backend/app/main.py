@@ -104,6 +104,9 @@ def _ingest_series(db: Session, items: list[dict]) -> Series:
 
     series = Series(
         series_uid=first["seriesUid"],
+        study_uid=first.get("studyInstanceUid"),
+        patient_id=first.get("patientId"),
+        patient_name=first.get("patientName"),
         modality=first["modality"],
         series_description=first["seriesDescription"],
         study_date=first["studyDate"],

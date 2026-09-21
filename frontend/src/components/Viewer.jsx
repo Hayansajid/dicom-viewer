@@ -2,6 +2,20 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { getSeriesDetail, fetchSlicePixels } from '../api.js';
 import { toImageData, computeFallbackWindow } from '../dicomRender.js';
 
+// Standard CT window/level presets, in Hounsfield units - the values
+// radiology staff commonly reach for to look at specific tissue types.
+// These are calibrated for CT; applying them to MR or mammography data
+// won't correspond to anything standardized, since those modalities
+// don't use Hounsfield units.
+const WINDOW_PRESETS = [
+  { label: 'Brain', wc: 40, ww: 80 },
+  { label: 'Soft tissue', wc: 40, ww: 400 },
+  { label: 'Lung', wc: -600, ww: 1500 },
+  { label: 'Bone', wc: 480, ww: 2500 },
+  { label: 'Liver', wc: 60, ww: 160 },
+  { label: 'Mediastinum', wc: 50, ww: 350 },
+];
+
 export default function Viewer({ seriesId }) {
   const [detail, setDetail] = useState(null);
   const [slices, setSlices] = useState([]);
@@ -93,7 +107,11 @@ export default function Viewer({ seriesId }) {
     setDetail(null);
     setSlices([]);
     setIndex(0);
-    setManualWindow(false);
+    // manualWindow/wc/ww are intentionally NOT reset here either - per
+    // the same reasoning as goTo() above, a chosen window/level should
+    // carry over even when switching to a different series entirely,
+    // until the user explicitly resets it. If the new series' pixel
+    // range is wildly different, "Reset window" is right there.
     setError('');
     if (!seriesId) return;
 
@@ -266,7 +284,11 @@ export default function Viewer({ seriesId }) {
   function goTo(i) {
     if (!detail) return;
     const clamped = Math.max(0, Math.min(detail.slices.length - 1, i));
-    setManualWindow(false);
+    // manualWindow/wc/ww are intentionally left untouched here - a
+    // radiologist adjusting window/level expects it to stay applied while
+    // scrolling through a stack, not reset back to each frame's own
+    // default on every single slice change. It only resets when the user
+    // explicitly clicks "Reset window".
     setIndex(clamped);
 
     // If target frame hasn't loaded yet from the pool, trigger on-demand fetch
@@ -396,6 +418,21 @@ export default function Viewer({ seriesId }) {
         <Field k="Compression" v={s.transfer_syntax_uid || '—'} />
         <hr />
       <h2>WINDOW</h2>
+        <div className="preset-row" title="Standard CT presets (Hounsfield units) - most meaningful on CT series; won't correspond to anything standard on MR/MG data.">
+          {WINDOW_PRESETS.map((p) => (
+            <button
+              key={p.label}
+              className="btn preset-btn"
+              onClick={() => {
+                setManualWindow(true);
+                setWc(p.wc);
+                setWw(p.ww);
+              }}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
         {(() => {
           const pMin = currentSlice?.pixelMin ?? 0;
           const pMax = currentSlice?.pixelMax ?? 4096;
@@ -455,11 +492,42 @@ function Field({ k, v }) {
 }
 
 function WindowSlider({ label, value, min, max, onChange }) {
+  const [text, setText] = useState(String(Math.round(value)));
+  const focused = useRef(false);
+
+  // Keep the text box in sync with external changes (slider drag, preset
+  // buttons, Reset window) - but only while the user isn't actively
+  // typing in it, so we don't overwrite what they're mid-way through
+  // entering.
+  useEffect(() => {
+    if (!focused.current) setText(String(Math.round(value)));
+  }, [value]);
+
+  function commit(raw) {
+    const n = parseFloat(raw);
+    if (!Number.isNaN(n)) onChange(n);
+  }
+
   return (
     <div className="field">
       <div className="k row">
         <span>{label}</span>
-        <span className="mono">{Math.round(value)}</span>
+        <input
+          className="window-value-input"
+          type="number"
+          value={text}
+          onFocus={() => {
+            focused.current = true;
+          }}
+          onChange={(e) => {
+            setText(e.target.value);
+            commit(e.target.value);
+          }}
+          onBlur={() => {
+            focused.current = false;
+            setText(String(Math.round(value)));
+          }}
+        />
       </div>
       <input
         type="range"

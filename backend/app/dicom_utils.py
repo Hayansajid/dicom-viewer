@@ -108,8 +108,14 @@ def extract_metadata(raw_bytes: bytes) -> dict:
 
     wc, ww = _extract_window_levels(ds)
 
+    patient_name = str(getattr(ds, "PatientName", "") or "").strip() or None
+    patient_id = str(getattr(ds, "PatientID", "") or "").strip() or None
+
     return {
         "seriesUid": str(getattr(ds, "SeriesInstanceUID", "") or "") or None,
+        "studyInstanceUid": str(getattr(ds, "StudyInstanceUID", "") or "") or None,
+        "patientName": patient_name,
+        "patientId": patient_id,
         "modality": str(getattr(ds, "Modality", "") or "") or None,
         "seriesDescription": str(getattr(ds, "SeriesDescription", "") or "") or None,
         "studyDate": _format_date(str(getattr(ds, "StudyDate", "") or "")),

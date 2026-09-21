@@ -10,6 +10,9 @@ class Series(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     series_uid = Column(String(128), nullable=True)
+    study_uid = Column(String(128), nullable=True)
+    patient_id = Column(String(64), nullable=True)
+    patient_name = Column(String(255), nullable=True)
     modality = Column(String(16), nullable=True)
     series_description = Column(String(255), nullable=True)
     study_date = Column(String(10), nullable=True)

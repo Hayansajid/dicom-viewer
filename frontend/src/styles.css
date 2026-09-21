@@ -224,6 +224,69 @@ main {
   letter-spacing: 0.04em;
 }
 
+.patient-folder {
+  margin-bottom: 6px;
+}
+
+.patient-folder-summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 4px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  list-style: none;
+  user-select: none;
+}
+
+.patient-folder-summary::-webkit-details-marker {
+  display: none;
+}
+
+.patient-folder-summary:hover {
+  background: var(--panel-2);
+}
+
+.folder-icon {
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.patient-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.patient-id {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--text-dim);
+  flex-shrink: 0;
+}
+
+.patient-count {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--text-dim);
+  background: var(--panel-2);
+  border-radius: 8px;
+  padding: 1px 6px;
+  flex-shrink: 0;
+}
+
+.patient-folder-series {
+  padding-left: 10px;
+  border-left: 1px solid var(--line);
+  margin-left: 10px;
+}
+
 .hint {
   font-size: 12px;
   color: var(--text-dim);
@@ -251,6 +314,7 @@ main {
   align-items: center;
   justify-content: center;
 }
+
 
 .series-thumb canvas {
   width: 100%;
@@ -423,6 +487,7 @@ input[type='range'] {
 
 input[type='range']::-webkit-slider-thumb {
   -webkit-appearance: none;
+  appearance: none;
   width: 14px;
   height: 14px;
   border-radius: 50%;
@@ -515,6 +580,50 @@ input[type='range']::-moz-range-thumb {
 .field .k.row {
   display: flex;
   justify-content: space-between;
+  align-items: center;
+}
+
+.window-value-input {
+  width: 64px;
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-family: var(--mono);
+  font-size: 12px;
+  text-align: right;
+}
+
+.window-value-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+/* Hide the spinner arrows browsers add to <input type="number"> - they
+   take up space and aren't needed here, the range slider covers the
+   "nudge up/down" interaction already. */
+.window-value-input::-webkit-outer-spin-button,
+.window-value-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  appearance: none;
+  margin: 0;
+}
+.window-value-input[type='number'] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.preset-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.preset-btn {
+  font-size: 11px;
+  padding: 5px 9px;
 }
 
 .field .v {
