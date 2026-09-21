@@ -1,0 +1,546 @@
+:root {
+  --bg: #0e1113;
+  --panel: #16191c;
+  --panel-2: #1c2024;
+  --line: #2a2f34;
+  --text: #dfe3e6;
+  --text-dim: #8a9298;
+  --accent: #5fd4c6;
+  --accent-dim: #2f5c56;
+  --warn: #e0a94f;
+  --mono: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+  --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* Applied when the toggle button sets document.documentElement's
+   data-theme attribute to "light" (see App.jsx). Every panel/border/text
+   color in the app is defined via these variables, so this one override
+   block re-themes the whole UI shell - nothing else needs to change. */
+:root[data-theme='light'] {
+  --bg: #f4f5f6;
+  --panel: #ffffff;
+  --panel-2: #eef0f1;
+  --line: #d7dbdd;
+  --text: #1a1d1f;
+  --text-dim: #63696d;
+  --accent: #1f8f80;
+  --accent-dim: #cdeae5;
+  --warn: #9a6a17;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  /* Belt-and-suspenders: the app is meant to fit exactly within one
+     screen (`.app` below uses height: 100vh) with no page-level
+     scrolling at all. If any element ever ends up oversized - which is
+     exactly what caused the black-screen bug (a canvas rendering at its
+     full native size instead of being scaled down, silently making the
+     whole page scrollable past the fold) - this makes that fail loudly
+     and visibly (content clipped at the viewport edge) instead of
+     invisibly (scrolled to some blank/black region with no visual cue
+     anything is wrong). */
+  overflow: hidden;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+}
+
+.app {
+  height: 100vh;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  /* CSS Grid, not flexbox, for the whole app shell. Grid items stretch to
+     fill their assigned track by default - no min-height:0 chain needed
+     at every level the way nested flexbox required, which is what made
+     this layout so fragile across multiple attempted fixes. */
+}
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+  flex-shrink: 0;
+}
+
+.theme-toggle {
+  font-size: 12px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.brand .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.brand h1 {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0;
+}
+
+main {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  min-height: 0;
+  min-width: 0;
+}
+
+.library {
+  min-height: 0;
+  background: var(--panel);
+  border-right: 1px solid var(--line);
+  overflow-y: auto;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* A slim, themed scrollbar for the two panels that can scroll (series
+   list, image/study metadata) - so on the occasional series list long
+   enough to still need it, it reads as an intentional, unobtrusive detail
+   rather than a jarring default browser scrollbar. Firefox uses the
+   `scrollbar-width`/`scrollbar-color` properties instead of ::-webkit-*. */
+.library,
+.side {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+
+.library::-webkit-scrollbar,
+.side::-webkit-scrollbar {
+  width: 6px;
+}
+
+.library::-webkit-scrollbar-thumb,
+.side::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 3px;
+}
+
+.library::-webkit-scrollbar-track,
+.side::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.upload-panel {
+  border: 1.5px dashed var(--line);
+  border-radius: 8px;
+  padding: 18px 14px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.upload-panel.drag {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+}
+
+.upload-panel-compact {
+  padding: 8px 10px;
+  gap: 4px;
+}
+
+.upload-panel-compact .btn {
+  width: 100%;
+}
+
+.upload-panel .icon {
+  color: var(--accent);
+  margin-bottom: 4px;
+}
+
+.upload-panel .title {
+  font-size: 13.5px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.upload-panel .hint {
+  font-size: 11.5px;
+  color: var(--text-dim);
+  margin: 0 0 6px;
+}
+
+.btn {
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 7px 12px;
+  font-size: 12.5px;
+  cursor: pointer;
+  font-family: var(--sans);
+}
+
+.btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.status {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-top: 4px;
+}
+
+.status.error {
+  color: var(--warn);
+}
+
+.library-list h2 {
+  font-size: 10.5px;
+  color: var(--text-dim);
+  margin: 0 0 8px;
+  letter-spacing: 0.04em;
+}
+
+.hint {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.library-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  margin-bottom: 2px;
+}
+
+.series-thumb {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.series-thumb canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.series-thumb-fallback {
+  font-size: 10px;
+  color: var(--text-dim);
+}
+
+.series-thumb-fallback.error {
+  color: var(--warn);
+}
+
+.library-item:hover {
+  background: var(--panel-2);
+}
+
+.library-item.active {
+  background: var(--accent-dim);
+}
+
+.li-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.li-title {
+  font-size: 12.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.li-sub {
+  font-size: 10.5px;
+  color: var(--text-dim);
+  font-family: var(--mono);
+}
+
+.li-delete {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 16px;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.li-delete:hover {
+  color: var(--warn);
+}
+
+.stage {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+}
+
+.viewer {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 1fr 240px;
+  grid-template-rows: 1fr auto;
+  grid-template-areas:
+    "main side"
+    "film side";
+}
+
+.viewer-main {
+  grid-area: main;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  background: var(--bg);
+  overflow: hidden;
+}
+
+.dicom-canvas {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  image-rendering: pixelated;
+  background: #000;
+  box-shadow: 0 0 0 1px var(--line);
+  cursor: crosshair;
+  user-select: none;
+  /* Forces this canvas onto its own GPU compositing layer. Without this,
+     some Chromium/GPU driver combinations fail to repaint a large 2D
+     canvas correctly after certain reflows, leaving it showing stale
+     (often blank/black) content until something else forces a repaint -
+     which is exactly the "works with devtools open, black once closed"
+     symptom this fixes. transform is used (not `will-change` alone)
+     because it's what reliably triggers layer promotion across browsers. */
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+.hud {
+  position: absolute;
+  top: 10px;
+  left: 12px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--accent);
+  pointer-events: none;
+}
+
+.hud .dim {
+  color: var(--text-dim);
+}
+
+.empty-viewer {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-dim);
+  font-size: 13px;
+  padding: 20px;
+  text-align: center;
+}
+
+.empty-viewer.error {
+  color: var(--warn);
+}
+
+.filmbar {
+  grid-area: film;
+  min-width: 0;
+  border-top: 1px solid var(--line);
+  background: var(--panel);
+  padding: 10px 14px 12px;
+}
+
+.filmbar .row1 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.filmbar .row1 .lbl {
+  font-size: 11px;
+  font-family: var(--mono);
+  color: var(--text-dim);
+  width: 100px;
+  flex-shrink: 0;
+}
+
+input[type='range'] {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--line);
+  outline: none;
+  width: 100%;
+}
+
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  border: 2px solid var(--panel);
+}
+
+input[type='range']::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  border: 2px solid var(--panel);
+}
+
+.filmstrip {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 4px;
+}
+
+.thumb {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1.5px solid transparent;
+  cursor: pointer;
+  position: relative;
+  background: #000;
+}
+
+.thumb canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.thumb.active {
+  border-color: var(--accent);
+}
+
+.thumb .n {
+  position: absolute;
+  bottom: 1px;
+  right: 3px;
+  font-size: 8px;
+  font-family: var(--mono);
+  color: #fff;
+  text-shadow: 0 0 2px #000;
+}
+
+.side {
+  grid-area: side;
+  min-height: 0;
+  background: var(--panel);
+  border-left: 1px solid var(--line);
+  overflow-y: auto;
+  padding: 14px;
+}
+
+.side h2 {
+  font-size: 10.5px;
+  color: var(--text-dim);
+  margin: 0 0 8px;
+  letter-spacing: 0.04em;
+}
+
+.side hr {
+  border: none;
+  border-top: 1px solid var(--line);
+  margin: 14px 0;
+}
+
+.field {
+  margin-bottom: 12px;
+}
+
+.field .k {
+  font-size: 10.5px;
+  color: var(--text-dim);
+  margin-bottom: 2px;
+}
+
+.field .k.row {
+  display: flex;
+  justify-content: space-between;
+}
+
+.field .v {
+  font-size: 12.5px;
+  font-family: var(--mono);
+  word-break: break-word;
+}
+
+.mono {
+  font-family: var(--mono);
+  color: var(--text);
+}
+
+@media (max-width: 900px) {
+  main {
+    grid-template-columns: 220px 1fr;
+  }
+
+  .viewer {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "main"
+      "film";
+  }
+
+  .side {
+    display: none;
+  }
+}

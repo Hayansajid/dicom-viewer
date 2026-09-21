@@ -1,0 +1,14 @@
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+python-multipart==0.0.9
+SQLAlchemy==2.0.35
+PyMySQL==1.1.1
+cryptography==43.0.1
+pydicom==2.4.4
+numpy>=2.0
+pylibjpeg==2.0.1
+pylibjpeg-libjpeg==2.3.0
+pylibjpeg-openjpeg==2.3.0
+pylibjpeg-rle==2.0.0
+python-gdcm==3.0.24.1
+python-dotenv==1.0.1
