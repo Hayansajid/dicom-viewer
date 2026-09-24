@@ -28,7 +28,7 @@ export default function UploadPanel({ onUploaded, compact }) {
             ? `Found ${result.series.length} series; ${result.skipped} file(s) in the archive weren't DICOM.`
             : `Found ${result.series.length} series.`
         );
-        onUploaded(result.series.map((s) => s.seriesId));
+        onUploaded({ ids: result.series.map((s) => s.seriesId), folderName: result.folderName || null });
       } else {
         const result = await uploadSeries(files);
         setMessage(
@@ -36,7 +36,7 @@ export default function UploadPanel({ onUploaded, compact }) {
             ? `Stored ${result.sliceCount} slice(s); ${result.skipped} file(s) could not be read as DICOM.`
             : `Stored ${result.sliceCount} slice(s).`
         );
-        onUploaded(result.seriesId);
+        onUploaded({ ids: [result.seriesId], folderName: null });
       }
     } catch (err) {
       setMessage(err.message || 'Upload failed.');

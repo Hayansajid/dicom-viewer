@@ -52,10 +52,19 @@ app.add_middleware(
 _SKIP_NAMES = {"thumbs.db", ".ds_store", "dicomdir"}
 
 
-def _parse_zip_entries(raw_zip: bytes) -> tuple[list[dict], int]:
+def _parse_zip_entries(raw_zip: bytes) -> tuple[list[dict], int, str | None]:
     """Recursively reads every file in a zip archive and attempts to parse
     each as DICOM, regardless of extension or folder nesting. Returns
-    (successfully_parsed_items, skipped_count)."""
+    (successfully_parsed_items, skipped_count, common_top_level_folder).
+
+    common_top_level_folder is the archive's single top-level folder name
+    (e.g. "PatientSmith_Study1" for entries like
+    "PatientSmith_Study1/series1/img001") if every parsed entry shares one -
+    used as a sensible default label for the patient folder this upload
+    creates, since that's usually a meaningful name the person chose
+    themselves when they exported/zipped the study. None if entries are
+    at the zip's root or span multiple different top-level folders.
+    """
     try:
         zf = zipfile.ZipFile(io.BytesIO(raw_zip))
     except zipfile.BadZipFile:
@@ -63,6 +72,7 @@ def _parse_zip_entries(raw_zip: bytes) -> tuple[list[dict], int]:
 
     parsed = []
     skipped = 0
+    top_folders: set[str] = set()
     for info in zf.infolist():
         if info.is_dir():
             continue
@@ -81,7 +91,12 @@ def _parse_zip_entries(raw_zip: bytes) -> tuple[list[dict], int]:
             continue
         parsed.append({"filename": name, "raw": raw, "meta": meta})
 
-    return parsed, skipped
+        parts = Path(info.filename).parts
+        if len(parts) > 1:
+            top_folders.add(parts[0])
+
+    common_folder = top_folders.pop() if len(top_folders) == 1 else None
+    return parsed, skipped, common_folder
 
 
 def _ingest_series(db: Session, items: list[dict]) -> Series:
@@ -208,7 +223,7 @@ async def upload_series_zip(file: UploadFile = File(...), db: Session = Depends(
         raise HTTPException(status_code=400, detail="Please upload a .zip archive.")
 
     raw_zip = await file.read()
-    parsed, skipped = _parse_zip_entries(raw_zip)
+    parsed, skipped, folder_name = _parse_zip_entries(raw_zip)
 
     if not parsed:
         raise HTTPException(status_code=400, detail="No DICOM files were found inside that archive.")
@@ -240,6 +255,7 @@ async def upload_series_zip(file: UploadFile = File(...), db: Session = Depends(
             for s in created
         ],
         skipped=skipped,
+        folderName=folder_name,
     )
 
 

@@ -16,7 +16,7 @@ const WINDOW_PRESETS = [
   { label: 'Mediastinum', wc: 50, ww: 350 },
 ];
 
-export default function Viewer({ seriesId }) {
+export default function Viewer({ seriesId, compact }) {
   const [detail, setDetail] = useState(null);
   const [slices, setSlices] = useState([]);
   const [index, setIndex] = useState(0);
@@ -25,13 +25,19 @@ export default function Viewer({ seriesId }) {
   const [ww, setWw] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  // In compact/comparison mode, window controls start collapsed behind a
+  // toggle so the image gets the space by default - they're still one
+  // click away, just not permanently eating a third of a small panel's
+  // height. Irrelevant in normal (sidebar) mode, where controls always
+  // show regardless of this value.
+  const [showCompactControls, setShowCompactControls] = useState(false);
 
   const canvasRef = useRef(null);
   const stageRef = useRef(null);
   const thumbRefs = useRef([]);
 
   const isDragging = useRef(false);
-  const lastPos = useRef({ x: 0, y: 0 });
+  const dragOrigin = useRef({ x: 0, y: 0 });
   const dragStart = useRef({ wc: 0, ww: 0 });
 
   function clamp(v, lo, hi) {
@@ -43,7 +49,10 @@ export default function Viewer({ seriesId }) {
     const slice = slices[index];
     if (!slice || slice.error) return;
     isDragging.current = true;
-    lastPos.current = { x: e.clientX, y: e.clientY };
+    // Fixed anchor point for the whole gesture - dx/dy below are always
+    // measured from HERE, not from the previous mousemove event. See the
+    // note in handleMouseMove for why that distinction matters.
+    dragOrigin.current = { x: e.clientX, y: e.clientY };
     // Always start from whatever window is actually on screen right now -
     // the file's default, or a previous manual adjustment - never from
     // possibly-stale/uninitialized React state. This is what was missing
@@ -60,8 +69,20 @@ export default function Viewer({ seriesId }) {
     if (!isDragging.current) return;
     const slice = slices[index];
     if (!slice || slice.error) return;
-    const dx = e.clientX - lastPos.current.x;
-    const dy = e.clientY - lastPos.current.y;
+
+    // Both dx and dy are measured from the FIXED point where the drag
+    // started (dragOrigin), not from the previous mousemove event. This
+    // used to be `e.clientX - lastPos.current.x` with lastPos updated on
+    // every event - which measures only the tiny incremental movement
+    // since the last mousemove (often just 1-2px, since mousemove fires
+    // very frequently), then adds that sliver to the ORIGINAL dragStart
+    // value while discarding every earlier movement in the same drag.
+    // The visible result was exactly what was reported: dragging felt
+    // like it only ever reached a narrow, barely-responsive range,
+    // because the total drag distance was never actually accumulated -
+    // only ever the last event's tiny delta was applied.
+    const dx = e.clientX - dragOrigin.current.x;
+    const dy = e.clientY - dragOrigin.current.y;
 
     // Scale drag sensitivity to this image's own pixel value range, so a
     // given mouse movement feels the same whether values span 0-255 or
@@ -79,7 +100,6 @@ export default function Viewer({ seriesId }) {
     const nextWw = clamp(dragStart.current.ww + dx * sensitivity, 1, fullSpan * 4);
     const nextWc = clamp(dragStart.current.wc - dy * sensitivity, pMin - fullSpan, pMax + fullSpan);
 
-    lastPos.current = { x: e.clientX, y: e.clientY };
     setManualWindow(true);
     setWw(nextWw);
     setWc(nextWc);
@@ -259,6 +279,30 @@ export default function Viewer({ seriesId }) {
     };
   }, [currentSlice, applyDisplaySize]);
 
+  // ResizeObserver closes a gap the listeners above don't cover: a panel
+  // that's just been mounted (e.g. opening comparison mode with several
+  // Viewer instances appearing in a grid at once) can have its container
+  // measure 0x0 for a moment before the grid finishes laying out all of
+  // them - applyDisplaySize silently no-ops on a 0-size measurement, and
+  // nothing was re-triggering it once a real size became available,
+  // which is exactly why panels sat black until something else (like
+  // moving the slice slider) happened to force another draw(). This
+  // observer fires with the container's current size as soon as it
+  // starts observing, and again on every subsequent real size change -
+  // covering initial mount, not just later resizes.
+  useEffect(() => {
+    const container = stageRef.current;
+    if (!container) return;
+    const observer = new ResizeObserver(() => {
+      const canvas = canvasRef.current;
+      if (canvas && currentSlice && !currentSlice.error) {
+        applyDisplaySize(canvas, currentSlice);
+      }
+    });
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [currentSlice, applyDisplaySize]);
+
   useEffect(() => {
     if (!currentSlice || currentSlice.error) return;
     if (!manualWindow) {
@@ -339,9 +383,78 @@ export default function Viewer({ seriesId }) {
   const s = detail.series;
   const currentMeta = detail.slices[index];
 
+  const windowControlsBlock = (
+    <>
+      <h2>WINDOW</h2>
+      {s.modality === 'CT' ? (
+        <div className="preset-row" title="Standard CT presets (Hounsfield units).">
+          {WINDOW_PRESETS.map((p) => (
+            <button
+              key={p.label}
+              className="btn preset-btn"
+              onClick={() => {
+                setManualWindow(true);
+                setWc(p.wc);
+                setWw(p.ww);
+              }}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+      ) : (
+        <p className="status preset-unavailable">
+          No standard window presets for {s.modality || 'this modality'} - presets are calibrated in CT-specific Hounsfield units.
+        </p>
+      )}
+      {(() => {
+        const pMin = currentSlice?.pixelMin ?? 0;
+        const pMax = currentSlice?.pixelMax ?? 4096;
+        const fullSpan = Math.max(1, pMax - pMin);
+
+        return (
+          <>
+            <WindowSlider
+              label="Center"
+              value={wc}
+              min={Math.floor(pMin)}
+              max={Math.ceil(pMax)}
+              onChange={(v) => {
+                setManualWindow(true);
+                setWc(v);
+              }}
+            />
+            <WindowSlider
+              label="Width"
+              value={ww}
+              min={1}
+              max={Math.ceil(fullSpan * 1.5)}
+              onChange={(v) => {
+                setManualWindow(true);
+                setWw(v);
+              }}
+            />
+          </>
+        );
+      })()}
+      <button
+        className="btn"
+        onClick={() => {
+          setManualWindow(false);
+          const slice = slices[index];
+          if (slice && !slice.error) {
+            setWc(slice.wc);
+            setWw(slice.ww);
+          }
+        }}
+      >
+        Reset window
+      </button>
+    </>
+  );
+
   return (
-    
-    <div className="viewer">
+    <div className={`viewer${compact ? ' viewer-compact' : ''}`}>
       <div className="viewer-main" ref={stageRef}>
         {currentSlice?.error ? (
           <div className="empty-viewer error">{currentSlice.message || 'Could not decode this frame.'}</div>
@@ -375,109 +488,68 @@ export default function Viewer({ seriesId }) {
             onChange={(e) => goTo(parseInt(e.target.value, 10))}
           />
         </div>
-        <div className="filmstrip">
-          {detail.slices.map((sl, i) => (
-            <div
-              key={sl.id}
-              ref={(el) => (thumbRefs.current[i] = el)}
-              className={`thumb${i === index ? ' active' : ''}`}
-              onClick={() => goTo(i)}
+
+        {compact ? (
+          <div className="compact-window-wrap">
+            <button
+              type="button"
+              className="compact-controls-toggle"
+              onClick={() => setShowCompactControls((v) => !v)}
             >
-              <ThumbCanvas slice={slices[i]} />
-              <span className="n">{i + 1}</span>
-            </div>
-          ))}
-        </div>
+              <span className={`chevron${showCompactControls ? ' open' : ''}`}>▸</span>
+              Window / Level
+            </button>
+            {showCompactControls && <div className="compact-window-controls">{windowControlsBlock}</div>}
+          </div>
+        ) : (
+          <div className="filmstrip">
+            {detail.slices.map((sl, i) => (
+              <div
+                key={sl.id}
+                ref={(el) => (thumbRefs.current[i] = el)}
+                className={`thumb${i === index ? ' active' : ''}`}
+                onClick={() => goTo(i)}
+              >
+                <ThumbCanvas slice={slices[i]} />
+                <span className="n">{i + 1}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
-      <aside className="side">
-        <h2>IMAGE</h2>
-        <Field
-          k="Slice"
-          v={
-            currentMeta?.instance_number != null
-              ? `#${currentMeta.instance_number}`
-              : `${index + 1} of ${detail.slices.length}`
-          }
-        />
-        <Field k="Frame" v={`${(currentMeta?.frame_index ?? 0) + 1}`} />
-        <Field
-          k="Dimensions"
-          v={
-            currentMeta?.cols_px && currentMeta?.rows_px
-              ? `${currentMeta.cols_px} x ${currentMeta.rows_px} px`
-              : '—'
-          }
-        />
-        <hr />
-        <h2>STUDY</h2>
-        <Field k="Modality" v={s.modality || '—'} />
-        <Field k="Series description" v={s.series_description || '—'} />
-        <Field k="Study date" v={s.study_date || '—'} />
-        <Field k="Pixel spacing" v={s.pixel_spacing || '—'} />
-        <Field k="Compression" v={s.transfer_syntax_uid || '—'} />
-        <hr />
-      <h2>WINDOW</h2>
-        <div className="preset-row" title="Standard CT presets (Hounsfield units) - most meaningful on CT series; won't correspond to anything standard on MR/MG data.">
-          {WINDOW_PRESETS.map((p) => (
-            <button
-              key={p.label}
-              className="btn preset-btn"
-              onClick={() => {
-                setManualWindow(true);
-                setWc(p.wc);
-                setWw(p.ww);
-              }}
-            >
-              {p.label}
-            </button>
-          ))}
-        </div>
-        {(() => {
-          const pMin = currentSlice?.pixelMin ?? 0;
-          const pMax = currentSlice?.pixelMax ?? 4096;
-          const fullSpan = Math.max(1, pMax - pMin);
-
-          return (
-            <>
-              <WindowSlider
-                label="Center"
-                value={wc}
-                min={Math.floor(pMin)}
-                max={Math.ceil(pMax)}
-                onChange={(v) => {
-                  setManualWindow(true);
-                  setWc(v);
-                }}
-              />
-              <WindowSlider
-                label="Width"
-                value={ww}
-                min={1}
-                max={Math.ceil(fullSpan * 1.5)}
-                onChange={(v) => {
-                  setManualWindow(true);
-                  setWw(v);
-                }}
-              />
-            </>
-          );
-        })()}
-        <button
-          className="btn"
-          onClick={() => {
-            setManualWindow(false);
-            const slice = slices[index];
-            if (slice && !slice.error) {
-              setWc(slice.wc);
-              setWw(slice.ww);
+      {!compact && (
+        <aside className="side">
+          <h2>IMAGE</h2>
+          <Field
+            k="Slice"
+            v={
+              currentMeta?.instance_number != null
+                ? `#${currentMeta.instance_number}`
+                : `${index + 1} of ${detail.slices.length}`
             }
-          }}
-        >
-          Reset window
-        </button>
-        {loading && <p className="status">Loading slices…</p>}
-      </aside>
+          />
+          <Field k="Frame" v={`${(currentMeta?.frame_index ?? 0) + 1}`} />
+          <Field
+            k="Dimensions"
+            v={
+              currentMeta?.cols_px && currentMeta?.rows_px
+                ? `${currentMeta.cols_px} x ${currentMeta.rows_px} px`
+                : '—'
+            }
+          />
+          <hr />
+          <h2>STUDY</h2>
+          <Field k="Modality" v={s.modality || '—'} />
+          <Field k="Series description" v={s.series_description || '—'} />
+          <Field k="Study date" v={s.study_date || '—'} />
+          <Field k="Pixel spacing" v={s.pixel_spacing || '—'} />
+          <Field k="Compression" v={s.transfer_syntax_uid || '—'} />
+          <hr />
+          {windowControlsBlock}
+          {loading && <p className="status">Loading slices…</p>}
+        </aside>
+      )}
     </div>
   );
 }

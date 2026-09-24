@@ -287,6 +287,117 @@ main {
   margin-left: 10px;
 }
 
+.folder-action {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 2px 4px;
+  flex-shrink: 0;
+  line-height: 1;
+  border-radius: 4px;
+}
+
+.folder-action:hover {
+  color: var(--accent);
+  background: var(--panel-2);
+}
+
+.folder-action-danger:hover {
+  color: var(--warn);
+}
+
+/* .patient-count already uses margin-left: auto to push itself (and
+   everything after it) to the right - the two action buttons above just
+   ride along after it. */
+
+.folder-rename-input {
+  flex: 1;
+  min-width: 0;
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 12px;
+  font-family: var(--sans);
+  font-weight: 600;
+}
+
+.compare-checkbox {
+  flex-shrink: 0;
+  cursor: pointer;
+  accent-color: var(--accent);
+}
+
+.compare-trigger {
+  display: block;
+  width: calc(100% - 10px);
+  margin: 4px 0 8px 10px;
+  font-size: 11px;
+  padding: 6px 10px;
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.compare-grid {
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  min-height: 0;
+}
+
+.compare-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+  font-size: 12.5px;
+  color: var(--text-dim);
+}
+
+.compare-panels {
+  display: grid;
+  /* Actual column/row counts are set inline from App.jsx based on panel
+     count (2 cols for 2-4 panels, 3 cols for 5-6) - this is just a
+     sane fallback. overflow: hidden rather than auto is deliberate: the
+     inline row/column tracks are sized to fit the exact panel count on
+     screen, so there should never be anything to scroll to. */
+  grid-template-columns: repeat(2, 1fr);
+  min-height: 0;
+  overflow: hidden;
+}
+
+.compare-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.compare-panel-label {
+  padding: 6px 10px;
+  font-size: 11px;
+  font-family: var(--mono);
+  color: var(--text-dim);
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.compare-panel-body {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+}
+
 .hint {
   font-size: 12px;
   color: var(--text-dim);
@@ -389,6 +500,16 @@ main {
     "film side";
 }
 
+/* Comparison mode: no .side panel is rendered at all (see Viewer.jsx),
+   so there's no second column to lay out - just the image on top and the
+   slice slider + compact window controls underneath. */
+.viewer-compact {
+  grid-template-columns: 1fr;
+  grid-template-areas:
+    "main"
+    "film";
+}
+
 .viewer-main {
   grid-area: main;
   min-width: 0;
@@ -459,11 +580,123 @@ main {
   padding: 10px 14px 12px;
 }
 
+/* Comparison mode: replaces the filmstrip thumbnail row with the WC/WW
+   controls, laid out horizontally instead of the tall stacked sidebar
+   arrangement, to keep each comparison panel as short as possible. Reuses
+   the exact same markup/classes as the sidebar version (.field,
+   .preset-row, .btn) - only the layout is re-flowed here via CSS. */
+.compact-window-controls {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  align-items: end;
+  gap: 2px 10px;
+  padding-top: 6px;
+  /* Hard cap, regardless of content (6 preset buttons + 2 slider rows +
+     reset button can want more room than a small comparison panel can
+     spare). Since .viewer's row template is "1fr auto", capping this
+     descendant's height is what actually caps the "auto" filmbar row -
+     .viewer-main's "1fr" then reliably claims everything else, so
+     expanding controls can never shrink the image below a guaranteed
+     minimum. Scrolls internally on the rare panel too short even for
+     this rather than eating into image space. */
+  max-height: 128px;
+  overflow-y: auto;
+}
+
+.compact-window-controls h2 {
+  display: none;
+}
+
+.compact-window-controls .preset-row {
+  grid-column: 1 / -1;
+  margin-bottom: 2px;
+  gap: 4px;
+}
+
+.compact-window-controls .preset-btn {
+  font-size: 9.5px;
+  padding: 3px 6px;
+}
+
+.compact-window-controls .preset-unavailable {
+  grid-column: 1 / -1;
+  margin: 0 0 4px;
+  font-size: 10px;
+}
+
+.compact-window-controls .field {
+  margin-bottom: 0;
+}
+
+.compact-window-controls .field .k {
+  font-size: 9.5px;
+  margin-bottom: 0;
+}
+
+.compact-window-controls .window-value-input {
+  width: 46px;
+  padding: 1px 4px;
+  font-size: 10px;
+}
+
+.compact-window-controls .btn {
+  height: fit-content;
+  font-size: 11px;
+  padding: 6px 10px;
+  white-space: nowrap;
+}
+
+/* Collapsed-by-default wrapper: a slim toggle bar (~28px) instead of the
+   full controls block eating a fixed chunk of every comparison panel's
+   height regardless of whether anyone's actively adjusting anything -
+   the image gets that space back by default, controls are one click
+   away. */
+.compact-window-wrap {
+  display: flex;
+  flex-direction: column;
+}
+
+.compact-controls-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 11px;
+  font-family: var(--sans);
+  cursor: pointer;
+  padding: 4px 2px;
+  text-align: left;
+}
+
+.compact-controls-toggle:hover {
+  color: var(--accent);
+}
+
+.compact-controls-toggle .chevron {
+  display: inline-block;
+  transition: transform 0.15s ease;
+  font-size: 9px;
+}
+
+.compact-controls-toggle .chevron.open {
+  transform: rotate(90deg);
+}
+
 .filmbar .row1 {
   display: flex;
   align-items: center;
   gap: 10px;
   margin-bottom: 8px;
+}
+
+.viewer-compact .filmbar {
+  padding: 6px 12px 8px;
+}
+
+.viewer-compact .filmbar .row1 {
+  margin-bottom: 2px;
 }
 
 .filmbar .row1 .lbl {
@@ -624,6 +857,11 @@ input[type='range']::-moz-range-thumb {
 .preset-btn {
   font-size: 11px;
   padding: 5px 9px;
+}
+
+.preset-unavailable {
+  margin-bottom: 14px;
+  line-height: 1.4;
 }
 
 .field .v {
