@@ -111,11 +111,22 @@ def extract_metadata(raw_bytes: bytes) -> dict:
     patient_name = str(getattr(ds, "PatientName", "") or "").strip() or None
     patient_id = str(getattr(ds, "PatientID", "") or "").strip() or None
 
+    # RAPID/iSchemaView-style CT perfusion exports (and similar tools)
+    # include pre-rendered summary/report images alongside the real scan
+    # slices - DICOM tags these as ImageType DERIVED/SECONDARY (SOP Class
+    # "Secondary Capture Image Storage"), rather than ORIGINAL/PRIMARY like
+    # an actual acquired slice. Flagging this lets the UI label them
+    # clearly instead of presenting a multi-panel report collage as if it
+    # were just another scrollable axial slice.
+    image_type = [str(v).upper() for v in (getattr(ds, "ImageType", None) or [])]
+    is_secondary_capture = "SECONDARY" in image_type or "DERIVED" in image_type
+
     return {
         "seriesUid": str(getattr(ds, "SeriesInstanceUID", "") or "") or None,
         "studyInstanceUid": str(getattr(ds, "StudyInstanceUID", "") or "") or None,
         "patientName": patient_name,
         "patientId": patient_id,
+        "isSecondaryCapture": is_secondary_capture,
         "modality": str(getattr(ds, "Modality", "") or "") or None,
         "seriesDescription": str(getattr(ds, "SeriesDescription", "") or "") or None,
         "studyDate": _format_date(str(getattr(ds, "StudyDate", "") or "")),

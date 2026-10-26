@@ -13,6 +13,15 @@ class Series(Base):
     study_uid = Column(String(128), nullable=True)
     patient_id = Column(String(64), nullable=True)
     patient_name = Column(String(255), nullable=True)
+    # One id per import (a zip, or one loose-file upload) so the sidebar can
+    # give every import its own folder even when two imports belong to the
+    # same patient. upload_name is the zip's name, shown as the folder title.
+    upload_id = Column(String(36), nullable=True, index=True)
+    upload_name = Column(String(255), nullable=True)
+    # True when this series is a pre-rendered report/summary image
+    # (DICOM ImageType DERIVED/SECONDARY) rather than an original
+    # acquired scan - see dicom_utils.extract_metadata for detection.
+    is_secondary_capture = Column(Boolean, nullable=False, default=False)
     modality = Column(String(16), nullable=True)
     series_description = Column(String(255), nullable=True)
     study_date = Column(String(10), nullable=True)

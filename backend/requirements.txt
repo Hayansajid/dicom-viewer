@@ -12,3 +12,5 @@ pylibjpeg-openjpeg==2.3.0
 pylibjpeg-rle==2.0.0
 python-gdcm==3.0.24.1
 python-dotenv==1.0.1
+segmentation-models-pytorch
+opencv-python-headless

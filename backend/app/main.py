@@ -2,6 +2,7 @@ import os
 import shutil
 import zipfile
 import io
+import uuid
 from pathlib import Path
 from typing import List
 
@@ -22,6 +23,8 @@ from .schemas import (
 )
 from .dicom_utils import extract_metadata
 from .pixel_utils import cache_file_pixels, read_cached_frame, PixelDecodeError
+from .stroke_ml import predict_stroke_mask, weights_available
+from .contour_utils import mask_to_contours
 
 env_path = Path(__file__).resolve().parent.parent / ".env"
 load_dotenv(dotenv_path=env_path)
@@ -99,12 +102,19 @@ def _parse_zip_entries(raw_zip: bytes) -> tuple[list[dict], int, str | None]:
     return parsed, skipped, common_folder
 
 
-def _ingest_series(db: Session, items: list[dict]) -> Series:
+def _ingest_series(db: Session, items: list[dict], upload_id: str, upload_name: str | None = None) -> Series:
     """Takes a list of already-parsed {filename, raw, meta} dicts that all
     belong to ONE series, sorts them into slice order, decodes/caches
     their pixel data, and writes the Series + Slice rows. Shared by both
     the loose-file upload endpoint and the zip upload endpoint so there's
-    exactly one place this logic lives."""
+    exactly one place this logic lives.
+
+    upload_id identifies this one import (a single zip, or a single
+    loose-file upload call) - every series created from the same import
+    shares it. This is what lets the sidebar separate two different
+    imports into their own folders even when both have blank/identical
+    PatientID and PatientName, which de-identified research exports
+    (RAPID CT perfusion among them) commonly do."""
 
     def file_sort_key(item):
         m = item["meta"]
@@ -116,14 +126,27 @@ def _ingest_series(db: Session, items: list[dict]) -> Series:
     first = items[0]["meta"]
     total_frames = sum(item["meta"]["numberOfFrames"] for item in items)
     ts_val = first.get("transferSyntaxUid") or first.get("transferSyntaxName") or "Unknown"
+    is_secondary_capture = bool(first.get("isSecondaryCapture"))
+
+    series_description = first["seriesDescription"]
+    if not series_description and is_secondary_capture:
+        # These are pre-rendered report/summary images (e.g. a RAPID CT
+        # perfusion "No Hemorrhage Suspected" montage) - GE/iSchemaView
+        # exports commonly leave SeriesDescription blank for them, which
+        # would otherwise show up in the sidebar as an unlabeled "CT"
+        # series indistinguishable from the real scan slices next to it.
+        series_description = "Secondary Capture (Report)"
 
     series = Series(
         series_uid=first["seriesUid"],
         study_uid=first.get("studyInstanceUid"),
         patient_id=first.get("patientId"),
         patient_name=first.get("patientName"),
+        upload_id=upload_id,
+        upload_name=upload_name,
+        is_secondary_capture=is_secondary_capture,
         modality=first["modality"],
-        series_description=first["seriesDescription"],
+        series_description=series_description,
         study_date=first["studyDate"],
         pixel_spacing=first["pixelSpacing"],
         transfer_syntax_uid=str(ts_val)[:255],
@@ -202,7 +225,7 @@ async def upload_series(files: List[UploadFile] = File(...), db: Session = Depen
         raise HTTPException(status_code=400, detail="None of the uploaded files could be read as DICOM.")
 
     try:
-        series = _ingest_series(db, ok)
+        series = _ingest_series(db, ok, upload_id=str(uuid.uuid4()))
         db.commit()
     except Exception:
         db.rollback()
@@ -233,10 +256,17 @@ async def upload_series_zip(file: UploadFile = File(...), db: Session = Depends(
         series_uid = item["meta"].get("seriesUid") or f"__no_series_uid_{item['filename']}"
         groups.setdefault(series_uid, []).append(item)
 
+    # One id for the whole archive - every series it contains shares it,
+    # so they're recognized as one import (see _ingest_series). The name
+    # defaults to the zip's own filename when the archive has no single
+    # common top-level folder for _parse_zip_entries to detect instead.
+    upload_id = str(uuid.uuid4())
+    upload_name = folder_name or Path(file.filename).stem
+
     created: list[Series] = []
     try:
         for items in groups.values():
-            created.append(_ingest_series(db, items))
+            created.append(_ingest_series(db, items, upload_id=upload_id, upload_name=upload_name))
         db.commit()
     except Exception:
         db.rollback()
@@ -323,6 +353,28 @@ def get_slice_pixels(slice_id: int, db: Session = Depends(get_db)):
             "X-Pixel-Cols": str(frame.cols),
         },
     )
+
+@app.get("/api/slices/{slice_id}/stroke-overlay")
+def get_stroke_overlay(slice_id: int, db: Session = Depends(get_db)):
+    """
+    Returns core + penumbra polygons predicted by the stroke segmentation model.
+    Returns empty lists if the model file is missing (so the frontend degrades gracefully).
+    """
+    slice_row = db.query(Slice).filter(Slice.id == slice_id).first()
+    if not slice_row:
+        raise HTTPException(status_code=404, detail="Slice not found.")
+    if not os.path.exists(slice_row.storage_path):
+        raise HTTPException(status_code=404, detail="Underlying file is missing on disk.")
+
+    if not weights_available():
+        return {"core": [], "penumbra": []}
+
+    try:
+        mask = predict_stroke_mask(slice_row.storage_path, slice_row.frame_index)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Stroke inference failed: {exc}")
+
+    return mask_to_contours(mask)
 
 
 @app.delete("/api/series/{series_id}", status_code=204)

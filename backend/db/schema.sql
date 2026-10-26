@@ -19,6 +19,9 @@ CREATE TABLE IF NOT EXISTS series (
   study_uid           VARCHAR(128) NULL,
   patient_id          VARCHAR(64)  NULL,
   patient_name        VARCHAR(255) NULL,
+  upload_id           VARCHAR(36)  NULL,
+  upload_name         VARCHAR(255) NULL,
+  is_secondary_capture TINYINT(1)  NOT NULL DEFAULT 0,
   modality            VARCHAR(16)  NULL,
   series_description  VARCHAR(255) NULL,
   study_date          VARCHAR(10)  NULL,
@@ -26,7 +29,8 @@ CREATE TABLE IF NOT EXISTS series (
   transfer_syntax_uid VARCHAR(255) NULL,
   slice_count         INT NOT NULL DEFAULT 0,
   created_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  INDEX idx_patient (patient_id)
+  INDEX idx_patient (patient_id),
+  INDEX idx_upload (upload_id)
 );
 
 -- One row per *viewable image*: a plain single-frame file produces exactly
@@ -68,4 +72,8 @@ CREATE TABLE IF NOT EXISTS slices (
 -- ALTER TABLE series ADD COLUMN patient_id VARCHAR(64) NULL AFTER study_uid;
 -- ALTER TABLE series ADD COLUMN patient_name VARCHAR(255) NULL AFTER patient_id;
 -- ALTER TABLE series ADD INDEX idx_patient (patient_id);
+-- ALTER TABLE series ADD COLUMN upload_id VARCHAR(36) NULL AFTER patient_name;
+-- ALTER TABLE series ADD COLUMN upload_name VARCHAR(255) NULL AFTER upload_id;
+-- ALTER TABLE series ADD COLUMN is_secondary_capture TINYINT(1) NOT NULL DEFAULT 0 AFTER upload_name;
+-- ALTER TABLE series ADD INDEX idx_upload (upload_id);
 -- ---------------------------------------------------------------------

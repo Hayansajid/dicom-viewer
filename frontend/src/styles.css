@@ -79,6 +79,16 @@ header {
   font-size: 12px;
 }
 
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.sidebar-toggle {
+  font-size: 12px;
+}
+
 .brand {
   display: flex;
   align-items: center;
@@ -463,6 +473,20 @@ main {
   text-overflow: ellipsis;
 }
 
+.report-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  font-family: var(--mono);
+  color: var(--warn);
+  border: 1px solid var(--warn);
+  vertical-align: middle;
+}
+
 .li-sub {
   font-size: 10.5px;
   color: var(--text-dim);
@@ -503,11 +527,17 @@ main {
 /* Comparison mode: no .side panel is rendered at all (see Viewer.jsx),
    so there's no second column to lay out - just the image on top and the
    slice slider + compact window controls underneath. */
+/* Comparison mode: image on the left uses the FULL panel height, with a
+   narrow scrollable control column on the right instead of stacking
+   controls below the image. This matters because panels in a multi-way
+   comparison grid tend to be wide-but-short (dividing screen width by
+   2-3 columns leaves more width to spare than dividing height by 2 rows
+   does) - so trading a fixed strip of WIDTH for controls costs much less
+   image space than the old approach of trading HEIGHT ever did. */
 .viewer-compact {
-  grid-template-columns: 1fr;
-  grid-template-areas:
-    "main"
-    "film";
+  grid-template-columns: 1fr 168px;
+  grid-template-rows: 1fr;
+  grid-template-areas: "main film";
 }
 
 .viewer-main {
@@ -586,21 +616,13 @@ main {
    the exact same markup/classes as the sidebar version (.field,
    .preset-row, .btn) - only the layout is re-flowed here via CSS. */
 .compact-window-controls {
-  display: grid;
-  grid-template-columns: 1fr 1fr auto;
-  align-items: end;
-  gap: 2px 10px;
-  padding-top: 6px;
-  /* Hard cap, regardless of content (6 preset buttons + 2 slider rows +
-     reset button can want more room than a small comparison panel can
-     spare). Since .viewer's row template is "1fr auto", capping this
-     descendant's height is what actually caps the "auto" filmbar row -
-     .viewer-main's "1fr" then reliably claims everything else, so
-     expanding controls can never shrink the image below a guaranteed
-     minimum. Scrolls internally on the rare panel too short even for
-     this rather than eating into image space. */
-  max-height: 128px;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 4px;
+  /* No max-height/overflow here anymore - the whole .filmbar column
+     (this block's parent, in the narrow side layout) scrolls as one
+     unit now, so a second nested scroll area would just be confusing. */
 }
 
 .compact-window-controls h2 {
@@ -608,38 +630,44 @@ main {
 }
 
 .compact-window-controls .preset-row {
-  grid-column: 1 / -1;
-  margin-bottom: 2px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 4px;
 }
 
 .compact-window-controls .preset-btn {
-  font-size: 9.5px;
-  padding: 3px 6px;
+  font-size: 9px;
+  padding: 4px 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .compact-window-controls .preset-unavailable {
-  grid-column: 1 / -1;
-  margin: 0 0 4px;
+  margin: 0;
   font-size: 10px;
+  line-height: 1.3;
 }
 
 .compact-window-controls .field {
   margin-bottom: 0;
+  width: 100%;
 }
 
 .compact-window-controls .field .k {
   font-size: 9.5px;
-  margin-bottom: 0;
+  margin-bottom: 2px;
 }
 
 .compact-window-controls .window-value-input {
-  width: 46px;
-  padding: 1px 4px;
+  width: 100%;
+  padding: 2px 4px;
   font-size: 10px;
+  text-align: right;
 }
 
 .compact-window-controls .btn {
+  width: 100%;
   height: fit-content;
   font-size: 11px;
   padding: 6px 10px;
@@ -692,11 +720,24 @@ main {
 }
 
 .viewer-compact .filmbar {
-  padding: 6px 12px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 10px;
+  border-top: none;
+  border-left: 1px solid var(--line);
+  overflow-y: auto;
 }
 
 .viewer-compact .filmbar .row1 {
-  margin-bottom: 2px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  margin-bottom: 0;
+}
+
+.viewer-compact .filmbar .row1 .lbl {
+  width: auto;
 }
 
 .filmbar .row1 .lbl {
@@ -889,5 +930,16 @@ input[type='range']::-moz-range-thumb {
 
   .side {
     display: none;
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.4;
+    transform: scale(0.75);
   }
 }

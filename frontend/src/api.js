@@ -82,3 +82,9 @@ export async function deleteSeries(id) {
   const res = await fetch(`${BASE_URL}/api/series/${id}`, { method: 'DELETE' });
   await handle(res);
 }
+
+export async function fetchStrokeOverlay(sliceId) {
+  const res = await fetch(`${BASE_URL}/api/slices/${sliceId}/stroke-overlay`);
+  await handle(res);
+  return res.json();
+}
